@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Human Boxes</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .item-card { background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .item-title { font-weight: 800; font-size: 16px; }
+    .item-meta { font-size: 13px; color: var(--muted); }
+    .counter { display: flex; align-items: center; gap: 8px; }
+    .counter button { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: #fff; font-weight: 800; cursor: pointer; }
+    .counter input { width: 50px; text-align: center; padding: 4px; font-weight: 800; border: 1px solid var(--line); border-radius: 8px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; width: fit-content; }
+    .tag-chem { background: var(--warn-soft); color: var(--warn); }
+    .tag-food { background: var(--ok-soft); color: var(--ok); }
+    .tag-med { background: #eef0fb; color: #4b5bb7; }
+    .tag-gear { background: #e3e8ee; color: var(--ink); }
+    .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .preset-btn { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--field); font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Гуманитарный склад • Best Fit</p>
+        <h1>Human Boxes</h1>
+        <p class="lead">Выберите позиции. Система рассчитает коробки, проверит вес (до 15 кг) и разделит несовместимые грузы.</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="step step-1">01</div>
+        <div><h2>Состав груза</h2><p>Укажите количество предметов</p></div>
+      </div>
+      <div class="grid" style="grid-template-columns: repeat(2, 1fr);" id="catalog-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="step step-2">02</div>
+        <div><h2>Стандарт коробки</h2><p>Выберите размер или введите вручную</p></div>
+      </div>
+      <div class="presets">
+        <button type="button" class="preset-btn" onclick="setBox(30,20,20)">S (30×20×20 см)</button>
+        <button type="button" class="preset-btn" onclick="setBox(40,30,30)">M (40×30×30 см)</button>
+        <button type="button" class="preset-btn" onclick="setBox(60,40,40)">L (60×40×40 см)</button>
+      </div>
+      <div class="grid">
+        <div class="field"><div class="field-top"><label>Длина</label><small>см</small></div><input type="number" id="dlina" value="40"></div>
+        <div class="field"><div class="field-top"><label>Ширина</label><small>см</small></div><input type="number" id="shirina" value="30"></div>
+        <div class="field"><div class="field-top"><label>Высота</label><small>см</small></div><input type="number" id="visota" value="30"></div>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button type="button" class="btn" onclick="calc()">Рассчитать схему укладки</button>
+      <button type="button" class="btn btn-link" onclick="resetAll()">Сбросить</button>
+    </div>
+
+    <div id="err" class="error" style="display:none;"></div>
+
+    <section id="res" class="result result-ok" style="display:none;">
+      <div class="result-head">
+        <div>
+          <p class="eyebrow">Ведомость сборки</p>
+          <h2 id="total-title">Коробок: 0</h2>
+          <p class="result-text">Свечи изолированы от продуктов и лекарств.</p>
+        </div>
+        <div class="badge">✓</div>
+      </div>
+      <div id="list" class="stats" style="grid-template-columns:1fr;"></div>
+    </section>
+  </div>
+
+  <script>
+    const ITEMS = [
+{ id: "net", name: "Маскировочная сеть", v: 15000, w: 3.5, c: "gear", m: "3.5 кг • 15 л", t: "Снаряжение", cl: "tag-gear" },
+      { id: "candle", name: "Окопная свеча", v: 1000, w: 0.8, c: "chem", m: "0.8 кг • 1 л", t: "Химия", cl: "tag-chem" },
+      { id: "medkit", name: "Аптечка 1-го эшелона", v: 2500, w: 0.7, c: "med", m: "0.7 кг • 2.5 л", t: "Медицина", cl: "tag-med" },
+      { id: "bandage", name: "Перевязочный пакет", v: 1500, w: 0.5, c: "med", m: "0.5 кг • 1.5 л", t: "Медицина", cl: "tag-med" },
+      { id: "ration", name: "Сухпаёк", v: 8000, w: 2.1, c: "food", m: "2.1 кг • 8 л", t: "Продукты", cl: "tag-food" },
+      { id: "stew", name: "Тушёнка (ящик)", v: 4500, w: 4.5, c: "food", m: "4.5 кг • 4.5 л", t: "Продукты", cl: "tag-food" },
+      { id: "wipes", name: "Влажные салфетки", v: 3500, w: 1.1, c: "hygiene", m: "1.1 кг • 3.5 л", t: "Гигиена", cl: "tag-gear" },
+      { id: "thermo", name: "Термобельё", v: 3000, w: 0.6, c: "gear", m: "0.6 кг • 3 л", t: "Снаряжение", cl: "tag-gear" }
+    ];
+    const BAD = { chem: ["food", "med"], food: ["chem"], med: ["chem"] };
+
+    const grid = document.getElementById("catalog-grid");
+    ITEMS.forEach(i => {
+      grid.innerHTML += `<div class="item-card"><div><span class="tag ${i.cl}">${i.t}</span><div class="item-title">${i.name}</div><div class="item-meta">${i.m}</div></div><div class="counter"><button type="button" onclick="chg('${i.id}',-1)">−</button><input type="number" id="${i.id}" value="0" min="0"><button type="button" onclick="chg('${i.id}',1)">+</button></div></div>`;
+    });
+
+    function chg(id, d) { const e = document.getElementById(id); e.value = Math.max(0, (parseInt(e.value) || 0) + d); }
+    function setBox(l, w, h) { document.getElementById("dlina").value = l; document.getElementById("shirina").value = w; document.getElementById("visota").value = h; }
+    function resetAll() { ITEMS.forEach(i => document.getElementById(i.id).value = 0); document.getElementById("res").style.display = "none"; document.getElementById("err").style.display = "none"; }
+
+    function calc() {
+      const err = document.getElementById("err"), res = document.getElementById("res");
+      err.style.display = "none"; res.style.display = "none";
+      const maxV = (+document.getElementById("dlina").value) * (+document.getElementById("shirina").value) * (+document.getElementById("visota").value) * 0.85;
+      if (maxV <= 0) { err.textContent = "Укажите размеры коробки!"; err.style.display = "block"; return; }
+
+      let all = [];
+      ITEMS.forEach(i => { for (let k = 0; k < (+document.getElementById(i.id).value || 0); k++) all.push(i); });
+      if (!all.length) { err.textContent = "Выберите хотя бы один предмет!"; err.style.display = "block"; return; }
+
+      all.sort((a, b) => b.v - a.v);
+      let boxes = [];
+
+      for (let it of all) {
+        if (it.v > maxV || it.w > 15) { err.textContent = `«${it.name}» не влезает в коробку!`; err.style.display = "block"; return; }
+        let best = null, minR = Infinity;
+        for (let b of boxes) {
+          if (b.v + it.v <= maxV && b.w + it.w <= 15 && !b.cats.some(c => (BAD[it.c] || []).includes(c))) {
+            if (maxV - (b.v + it.v) < minR) { minR = maxV - (b.v + it.v); best = b; }
+          }
+        }
+        if (best) { best.items.push(it.name); best.v += it.v; best.w += it.w; best.cats.push(it.c); }
+        else boxes.push({ items: [it.name], v: it.v, w: it.w, cats: [it.c] });
+      }
+
+      document.getElementById("total-title").textContent = "Понадобится коробок: " + boxes.length;
+      const list = document.getElementById("list"); list.innerHTML = "";
+      boxes.forEach((b, idx) => {
+        let cnt = {}; b.items.forEach(n => cnt[n] = (cnt[n] || 0) + 1);
+        let pct = Math.round((b.v / maxV) * 100);
+list.innerHTML += `<div class="stat stat-main"><span>Коробка №${idx + 1} • Вес: ${b.w.toFixed(1)} кг • Заполнено: ${pct}%</span><b style="display:block;margin-top:4px;">${Object.keys(cnt).map(k => k + " — " + cnt[k] + " шт.").join(" • ")}</b><div class="bar" style="margin-top:8px;"><i style="width:${Math.min(100, pct)}%"></i></div></div>`;
+      });
+      res.style.display = "block";
+    }
+  </script>
+</body>
+</html>
